@@ -34,6 +34,8 @@ unsigned long int adder_counters[NADDERS];
 /* We use a semaphore to wait for adder() threads to finish */
 struct semaphore *finished;
 
+struct lock *mutex;
+
 
 /*
  * **********************************************************************
@@ -77,15 +79,20 @@ static void adder(void * unusedpointer, unsigned long addernumber)
         while (flag) {
                 /* loop doing increments until we achieve the overall number
                    of increments */
-
+		lock_acquire(mutex);
                 a = counter;
                 if (a < NADDS) {
-                        counter = counter + 1;
-                        b = counter;
+                        
+			//P(finished);
+			counter = counter + 1;
+			//V(finished);                        
+
+			b = counter;
 
                         /* count the number of increments we perform  for statistics */
+			
                         adder_counters[addernumber]++;
-
+			
                         /* check we are getting sane results */
                         if (a + 1 != b) {
                                 kprintf("In thread %ld, %ld + 1 == %ld?\n",
@@ -94,6 +101,7 @@ static void adder(void * unusedpointer, unsigned long addernumber)
                 } else {
                         flag = 0;
                 }
+		lock_release(mutex);
         }
 
         /* signal the main thread we have finished and then exit */
@@ -127,6 +135,7 @@ int maths (int data1, char **data2)
         /* create a semaphore to allow main thread to wait on workers */
 
         finished = sem_create("finished", 0);
+	mutex = lock_create("mutex");
 
         if (finished == NULL) {
                 panic("maths: sem create failed");
@@ -171,7 +180,9 @@ int maths (int data1, char **data2)
         /* Print out some statistics */
         sum = 0;
         for (index = 0; index < NADDERS; index++) {
+		//P(finished);
                 sum += adder_counters[index];
+		//V(finished);
                 kprintf("Adder %d performed %ld increments.\n", index,
                         adder_counters[index]);
         }
@@ -186,6 +197,7 @@ int maths (int data1, char **data2)
 
         /* clean up the semaphore we allocated earlier */
         sem_destroy(finished);
+	lock_destroy(mutex);
         return 0;
 }
 
