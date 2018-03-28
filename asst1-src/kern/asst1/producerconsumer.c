@@ -1,5 +1,6 @@
 /* This file will contain your solution. Modify it as you wish. */
 #include <types.h>
+#include "synch.h"
 #include "producerconsumer_driver.h"
 
 /* Declare any variables you need here to keep track of and
@@ -8,6 +9,13 @@
 
 static struct pc_data buffer[BUFFER_SIZE];
 
+// the start and end indices of the array
+int start;
+int end;
+
+struct semaphore *consumer, *producer;
+struct lock *lock; //, *lock_producer;
+
 
 /* consumer_receive() is called by a consumer to request more data. It
    should block on a sync primitive if no data is available in your
@@ -15,15 +23,20 @@ static struct pc_data buffer[BUFFER_SIZE];
 
 struct pc_data consumer_receive(void)
 {
-        struct pc_data thedata;
+    P(consumer); // decrement - used to represent waiting for producers to produce something 
 
-        (void) buffer; /* remove this line when you start */
 
-        /* FIXME: this data should come from your buffer, obviously... */
-        thedata.item1 = 1;
-        thedata.item2 = 2;
+    struct pc_data thedata;
 
-        return thedata;
+    lock_acquire(lock);
+    // critical section - start
+	thedata = buffer[start];
+    start = (start + 1 ) % BUFFER_SIZE; // the creates circular 	
+    // critical section - end 
+    lock_release(lock);
+    V(producer); // - increment - used to represent a consumer consuming something
+
+    return thedata;
 }
 
 /* procucer_send() is called by a producer to store data in your
@@ -31,7 +44,22 @@ struct pc_data consumer_receive(void)
 
 void producer_send(struct pc_data item)
 {
-        (void) item; /* Remove this when you add your code */
+
+
+    P(producer); // decrement - used to represent waiting for a consumer to consume something
+
+    lock_acquire(lock);
+    // critical section - start
+    buffer[end] = item;
+    end = (end + 1) % BUFFER_SIZE;    
+    // critical section - end 
+    lock_release(lock);
+
+
+
+    V(consumer); // increment - used to represent a producers 
+                 // produced something and therefore the consumer can continue 
+
 }
 
 
@@ -42,10 +70,28 @@ void producer_send(struct pc_data item)
 
 void producerconsumer_startup(void)
 {
+    consumer = sem_create("consumer", 0);
+    producer = sem_create("producer", BUFFER_SIZE-1);
+
+    start = 0;
+    end = 0;
+
+    lock = lock_create("lock_consumer");
+    //lock_producer = lock_create("lock_producer");
+
+
 }
 
 /* Perform any clean-up you need here */
 void producerconsumer_shutdown(void)
 {
+
+    sem_destroy(consumer);
+    sem_destroy(producer);
+
+    lock_destroy(lock);
+    //lock_destroy(lock_producer);
+
+
 }
 
