@@ -20,6 +20,8 @@ struct barorder {
 
         /* This struct can be extended with your own entries below here */ 
 
+        int spot;
+
 };
 
 #endif

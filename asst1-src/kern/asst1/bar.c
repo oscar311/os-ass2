@@ -16,7 +16,13 @@
  */
 
 /* Declare any globals you need here (e.g. locks, etc...) */
+struct semaphore *customer_sem, *bartender_sem;
+struct semaphore *customer_waiting[NCUSTOMERS];
+struct lock *bar_lock;
+struct barorder requested_orders[NCUSTOMERS]; // can only queue orders to the number of customers
 
+int start;
+int end;
 
 /*
  * **********************************************************************
@@ -34,8 +40,28 @@
 
 void order_drink(struct barorder *order)
 {
-        (void) order; /* Avoid compiler warning, remove when used */
-        panic("You need to write some code!!!!\n");
+
+
+    // place order in the queue 
+    P(customer_sem); // decrement - used to represent a producer producing something, as it start at,
+                     //             customer size, therefore it only waits if every customer has ordered
+
+
+    lock_acquire(bar_lock);
+    int index = end;
+    order->spot = index;
+    requested_orders[end] = *order;
+    end = (end + 1) % NCUSTOMERS;
+
+    lock_release(bar_lock);
+
+
+
+    V(bartender_sem); // increment - used to represent that there is now a drink available to be served 
+
+    P(customer_waiting[index]); // decrement - used to represent the customer waiting for their order to be filled
+
+
 }
 
 
@@ -56,7 +82,24 @@ void order_drink(struct barorder *order)
 
 struct barorder *take_order(void)
 {
-        struct barorder *ret = NULL;
+
+        P(bartender_sem); // decrement - used to represent a bartender waiting for a drink to be ordered
+                         //             as it waits at 0
+
+
+
+        lock_acquire(bar_lock);
+
+        struct barorder *ret = &requested_orders[start];
+        
+        start = (start+1) % NCUSTOMERS;
+
+        lock_release(bar_lock);
+
+
+        V(customer_sem); // increment - used to represent that a space for an order has opened 
+
+
 
         return ret;
 }
@@ -80,7 +123,15 @@ void fill_order(struct barorder *order)
            holds as described */
 
         /* the call to mix must remain */
+        
+
+
+
+        lock_acquire(bar_lock);
+
         mix(order);
+
+        lock_release(bar_lock);
 
 }
 
@@ -94,8 +145,11 @@ void fill_order(struct barorder *order)
 
 void serve_order(struct barorder *order)
 {
-        (void) order; /* avoid a compiler warning, remove when you
+    (void) order; /* avoid a compiler warning, remove when you
                          start */
+
+
+    V(customer_waiting[order->spot]);
 }
 
 
@@ -117,7 +171,16 @@ void serve_order(struct barorder *order)
 
 void bar_open(void)
 {
+    customer_sem = sem_create("customer_sem", NCUSTOMERS - 1);
+    bartender_sem = sem_create("bartender_sem", 0 );
 
+    bar_lock = lock_create("bar_lock");
+
+    start = 0;
+    end = 0;
+
+    for(int i = 0; i < NCUSTOMERS; i++) 
+        customer_waiting[i] = sem_create("hello"+i, 0);
 }
 
 /*
@@ -129,6 +192,15 @@ void bar_open(void)
 
 void bar_close(void)
 {
+
+    sem_destroy(customer_sem);
+    sem_destroy(bartender_sem);
+
+    lock_destroy(bar_lock);
+
+
+    for(int i = 0; i < NCUSTOMERS; i++) 
+        sem_destroy( customer_waiting[i] );
 
 }
 
