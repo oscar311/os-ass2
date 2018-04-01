@@ -1,1 +1,94 @@
-Place your design document here.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 1 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The issue with math.c is that 
+
+
+
+
+
+
+
+
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 2 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 3 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+
+
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 4 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Question 4 is similar to question 3, as in q4 is a slightly more complicated producer/consumer problem. The shared resource here is the requested_orders array which keeps track of orders
+
+void bar_open(void)
+
+    Performs the initialization of the synch primitives:
+        -- customer_sem - semaphore for the customer represents the customer waiting in line as initial count is NBARTENDERS, so waiting when there is no bartenders available.
+        -- bartener_sem - semaphore represent the bartender waiting for a customer to order, initial count is 0, so wait when there is no customer.
+        -- bar_lock - lock used for accessing the shared resource requested_orders
+        -- mix_loc - lock used for ensuring that mix() has exclusive access to the required bottles
+        -- customer_waiting semaphore array - semaphore of each customer represents waiting for the drink to be served. Note: int spot was added to the order struct in order to index the array therefore keeping track of which customer ordered what
+
+    And also initializes the start and end variables of the circular array requested_orders to 0.
+
+void bar_close(void)
+
+    Performs clean up of synch primitives
+
+void order_drink(struct barorder *order)
+
+    Takes an order to be filled 
+        -- First we decrement the customer semaphore representing waiting for the bartender to serve them, NBARTENDERS being available 
+        -- The we acquire the lock so we can access the shared resource
+        -- We save what index the order is in the requested_order array (to keep track of which customer orders what)
+        -- We add the order onto the end of the requested orders array, and increment the end variable, using modulus size so that the array is circular
+        -- We release the lock as we are out of the critical section 
+        -- We increment the bartender semaphore representing that there is now an order to available to be made 
+        -- And we index the customer_waiting array we the index we acquired earlier, grab the matching semaphore and decrement it represent that specific customer waiting for their drink to be made and served.
+
+struct barorder *take_order(void)
+
+    Waits for a new order to be submitted by customers. When submitted, it returns a pointer to the order
+        -- First we decrement the bartender semaphore representing waiting for the customer to order, as it waits at 0
+        -- The we acquire the lock so we can access the shared resource
+        -- We grab the first order in the array and increment the start variable, using modulus size so that the array is circular
+        -- We release the lock as we are out of the critical section 
+        -- We increment the customer semaphore representing that there is now a bartender available to serve them
+
+void fill_order(struct barorder *order)
+
+    This function takes an order provided by take_order and fills the order using the mix() function to mix the drink.
+        -- We acquire the mix lock as we need to ensure that mix has exclusive access to the required bottles
+        -- Mix the drink
+        -- Release the mix lock
+
+void serve_order(struct barorder *order)
+
+    Serves the order:
+        -- Grab the index gained from order->spot, which we saved previously, index into the customer_waiting array and grab that semaphore representative of the customer waiting for their drink to be made and served, the order->spot variable keeps track of the customer. We increment the customer waiting unblocking them as their drink is served.
+
+
+

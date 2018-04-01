@@ -18,7 +18,7 @@
 /* Declare any globals you need here (e.g. locks, etc...) */
 struct semaphore *customer_sem, *bartender_sem;
 struct semaphore *customer_waiting[NCUSTOMERS];
-struct lock *bar_lock;
+struct lock *bar_lock, *mix_lock;
 struct barorder requested_orders[NCUSTOMERS]; // can only queue orders to the number of customers
 
 int start;
@@ -75,7 +75,7 @@ void order_drink(struct barorder *order)
 /*
  * take_order()
  *
- * This function waits for a new order to be submitted by
+ * This FUNCTIONS waits for a new order to be submitted by
  * customers. When submitted, it returns a pointer to the order.
  *
  */
@@ -127,11 +127,11 @@ void fill_order(struct barorder *order)
 
 
 
-        lock_acquire(bar_lock);
+        lock_acquire(mix_lock);
 
         mix(order);
 
-        lock_release(bar_lock);
+        lock_release(mix_lock);
 
 }
 
@@ -171,16 +171,18 @@ void serve_order(struct barorder *order)
 
 void bar_open(void)
 {
-    customer_sem = sem_create("customer_sem", NCUSTOMERS - 1);
+    customer_sem = sem_create("customer_sem", NBARTENDERS - 1);
     bartender_sem = sem_create("bartender_sem", 0 );
 
     bar_lock = lock_create("bar_lock");
+    mix_lock = lock_create("mix_lock");
+
 
     start = 0;
     end = 0;
 
     for(int i = 0; i < NCUSTOMERS; i++) 
-        customer_waiting[i] = sem_create("hello"+i, 0);
+        customer_waiting[i] = sem_create("customer_waiting_semaphore_"+i, 0);
 }
 
 /*
@@ -197,6 +199,7 @@ void bar_close(void)
     sem_destroy(bartender_sem);
 
     lock_destroy(bar_lock);
+    lock_destroy(mix_lock);
 
 
     for(int i = 0; i < NCUSTOMERS; i++) 

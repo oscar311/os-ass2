@@ -34,6 +34,7 @@ struct pc_data consumer_receive(void)
     start = (start + 1 ) % BUFFER_SIZE; // the creates circular 	
     // critical section - end 
     lock_release(lock);
+    
     V(producer); // - increment - used to represent a consumer consuming something
 
     return thedata;

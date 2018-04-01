@@ -68,46 +68,49 @@ struct lock *mutex;
 
 static void adder(void * unusedpointer, unsigned long addernumber)
 {
-        unsigned long int a, b;
-        int flag = 1;
+    unsigned long int a, b;
+    int flag = 1;
 
-        /*
-         * Avoid unused variable warnings.
-         */
-        (void) unusedpointer; /* remove this line if variable is used */
+    /*
+     * Avoid unused variable warnings.
+     */
+    (void) unusedpointer; /* remove this line if variable is used */
 
-        while (flag) {
-                /* loop doing increments until we achieve the overall number
-                   of increments */
-		lock_acquire(mutex);
-                a = counter;
-                if (a < NADDS) {
-                        
-			//P(finished);
-			counter = counter + 1;
-			//V(finished);                        
+    while (flag) {
+            /* loop doing increments until we achieve the overall number
+               of increments */
+        lock_acquire(mutex);
+        a = counter;
+        //lock_release(mutex);
 
-			b = counter;
 
-                        /* count the number of increments we perform  for statistics */
-			
-                        adder_counters[addernumber]++;
-			
-                        /* check we are getting sane results */
-                        if (a + 1 != b) {
-                                kprintf("In thread %ld, %ld + 1 == %ld?\n",
-                                        addernumber, a, b) ;
-                        }
-                } else {
-                        flag = 0;
-                }
-		lock_release(mutex);
+        if (a < NADDS) {
+            
+	        //P(finished);
+	        counter = counter + 1;
+        	//V(finished);                        
+
+        	b = counter;
+            /* count the number of increments we perform  for statistics */
+	
+            adder_counters[addernumber]++;
+
+            /* check we are getting sane results */
+            if (a + 1 != b) {
+                    kprintf("In thread %ld, %ld + 1 == %ld?\n",
+                            addernumber, a, b) ;
+            }
+        } else {
+                flag = 0;
         }
+        lock_release(mutex);
 
-        /* signal the main thread we have finished and then exit */
-        V(finished);
+    }
 
-        thread_exit();
+    /* signal the main thread we have finished and then exit */
+    V(finished);
+
+    thread_exit();
 }
 
 /*
