@@ -123,3 +123,31 @@ dup2
         -> if newfd is in the file table, close it
         -> check if we already have one dup of the oldfd
         -> update file table by update linked list
+
+
+
+
+
+~~~~~~~~~~~ setup ~~~~~~~~~~~
+
+
+cd ~/cs3231/asst2-src
+./configure
+cd ~/cs3231/asst2-src
+bmake
+bmake install
+cd ~/cs3231/asst2-src/kern/conf
+./config ASST2
+cd ../compile/ASST2
+bmake depend
+bmake
+bmake install
+
+
+
+
+
+~~~~~~~~~~~ testing ~~~~~~~~~~~
+
+
+sys161 kernel "p /testbin/asst2"
