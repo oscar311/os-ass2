@@ -1,47 +1,55 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 1 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The issue with math.c is that 
+The lock_acquire() function is called before the increment and the global mutex variable parsed in “lock_acquire(mutex);”. This function is atomic so there is no race condition on the lock.
 
+Once the lock is acquired we check if a has reached the number of overall increments to perform, if it has then set the flag to 0 which stops the loop. If it hasnt then we increment the counter, set b to the counter to keep track of the statistics and release the lock using lock_release(mutex); which is also atomic.
 
-
-
-
-
-
-
-
-
-
+As the lock must be acquired to increment the counter and only one thread can hold the lock at the same time, the incrementing of the counter works properly.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 2 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Bill and Ben acquire the 2 locks in opposite orders, so when Bill acquires lock a first and the OS switches to the thread running Ben which acquires lock b. Ben will be waiting for lock a and Bill will be waiting for lock b which is a deadlock.
 
+However if they both acquire the locks in the same order, Bill will acquire lock a and if the OS switches to Ben here, Ben will be waiting for lock a. So when the OS switches back to the thread running Bill, it will acquire lock b and complete its task. The same occurs for when Ben acquires lock a before lock Bill does so it can never be deadlocked.
 
-
-
-
-
-
-
-
+This is an implementation of ordered resources where lock a has to be acquired first and then lock b for all threads.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 3 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+part 3 is a producer/consumer problem with the shared resource being the buffer
 
+void producerconsumer_startup(void)
 
+    performs the initializations of the synch primitives:
+        -- customer - semaphore for the customer represents the customer waiting for the producer to produce something 
+        -- producer - semaphore represent the producer waiting for a the buffer space to arise, initial count is buffer size, so waiting when the buffer is full.
+        -- lock - lock used for accessing the shared resource buffer
+    And also initializes the start and end variables of the circular array buffer to 0.
 
+void producerconsumer_shutdown(void)
+    
+    Performs clean up of synch primitives
 
+struct pc_data consumer_receive(void)
 
+    called by a consumer to request more data. Blocks if no data is available:
+        -- first we decrement the customer semaphore used to represent waiting for producers to produce something 
+        -- The we acquire the lock so we can access the shared resource buffer
+        -- We grab the first data in the array and increment the start variable, using modulus size so that the array is circular
+        -- We release the lock as we are out of the critical section 
+        -- We increment the producer semaphore representing that there is now free space in the buffer
 
-
-
-
-
-
+void producer_send(struct pc_data item) 
+    called by a producer to store data in the bounded buffer:
+        -- First we decrement the producer semaphore representing waiting for the space in the buffer becoming available
+        -- The we acquire the lock so we can access the shared resource
+        -- We add the data onto the end of the buffer array, and increment the end variable, using modulus size so that the array is circular
+        -- We release the lock as we are out of the critical section 
+        -- We increment the customer semaphore representing that there is now data to consume.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 4 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Question 4 is similar to question 3, as in q4 is a slightly more complicated producer/consumer problem. The shared resource here is the requested_orders array which keeps track of orders
+part 4 is similar to part 3, as in q4 is a slightly more complicated producer/consumer problem. The shared resource here is the requested_orders array which keeps track of orders
 
 void bar_open(void)
 
@@ -89,6 +97,3 @@ void serve_order(struct barorder *order)
 
     Serves the order:
         -- Grab the index gained from order->spot, which we saved previously, index into the customer_waiting array and grab that semaphore representative of the customer waiting for their drink to be made and served, the order->spot variable keeps track of the customer. We increment the customer waiting unblocking them as their drink is served.
-
-
-

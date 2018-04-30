@@ -1,0 +1,125 @@
+~~~~~~~~~~~~~~~~~~~~~ Design ~~~~~~~~~~~~~~~~~~~~~
+
+the design of our solution for assignment 2 can be broken down into several components:
+
+note: consider shared data structures need locking?
+
+note: when update file table consider
+            - filetable_offset[i]
+            - filetable_dup[i]
+            - filetable_isdup[i] 
+            - filetable_parent[i]
+            - filetable[i] -> allocate some memory
+
+
+open (needs edits)
+
+    man page - http://man7.org/linux/man-pages/man2/open.2.html
+
+    int open(const char *filename, int flags)
+
+    - filename = name of file
+    - flags = flags that need to be given to vfs_open()
+    
+    - open and possibly create file if syscall == "SYS_open"
+        -> scan through file table to look for an avaliable slot
+        -> once found, offset will be 0, allocate some memory
+        -> update the following 
+            - filetable_offset[i] -> 0
+            - filetable_dup[i]
+            - filetable_isdup[i] -> not dup
+            - filetable_parent[i] -> no parent
+            - filetable[i] -> allocate some memory
+        -> call vfs_open()
+
+read (done)
+
+    man page - http://man7.org/linux/man-pages/man2/read.2.html
+    
+    ssize_t read(int fd, void *buf, size_t count)
+
+    - fd = file descriptor
+    - buf = buffer data will be put into to be read
+    - count = number of bytes to be read
+
+    
+    - read a file if syscall == "SYS_read"
+        -> check securities - if user read allowed access (do we need a lock here)
+        -> init buffer to read into
+        -> check valid file handler (has to be > 2, not null or 1 = stdout or 2 = stderr (write only) )
+        -> get stats for file VOP_STAT() 
+        -> check we have bytes to read
+        -> set up UIO (unique Input/Output) for kernel I/O and read bytes into it mk_kuio() & VOP_READ() (don't forget to check error)
+        -> update offset + dups
+        -> copy out to userland copyout()
+        -> return bytes read
+
+write
+
+    man page - http://man7.org/linux/man-pages/man2/write.2.html
+    
+    ssize_t write(int fd, const void *buf, size_t count))
+
+    - fd = file descriptor 
+    - buf = date to be written 
+    - count = number of bytes  
+
+    - write from a buffer to a file if syscall == "SYS_write"
+        -> allocate space for the buffer 
+        -> check valid file handler,  != 0 as this is stdin (read only)
+        -> check the file descriptor given is valid in the filetable
+        -> copy the date from userland to kernelspace, using copyin()
+        -> set up UIO (unique Input/Output) for kernel I/O and write bytes into it mk_kuio() & VOP_WRITE() (don't forget to check error)
+        -> update offset + dups
+        -> return bytes written
+lseek 
+
+    man page - http://man7.org/linux/man-pages/man2/lseek.2.html
+
+    off_t lseek(int fd, off_t offset, int whence)
+
+    - fd = file descriptor 
+    - offset = offset that we will be repositioning by
+    - whence = directive either = SEEK_SET (set offset to offset many bytes), SEEK_CUR (offset is set to current loc + offset), SEEK_END (size of file + offset)
+
+    - reposition read/write file offset when syscall == "SYS_lseek"
+        -> stdin (fd = 0), stdout (fd = 1), stderr (fd = 2) don't support lseek
+        -> check whether fd is within range 
+        -> save old offset
+        -> check what whence equals and adjust appropriately
+            == SEEK_SET -> filetable_offset[fd] = pos
+            == SEEK_CUR -> filetable_offset[fd] += pos
+            == SEEK_END -> use VOP_STAT, filetable_offset[fd] = (filestat.st_size -1) + pos
+
+        -> use VOP_TRYSEEK() to check if the new pos is legal, on a legal file 
+        -> return either the new offset or old offset
+
+close
+
+    man page - http://man7.org/linux/man-pages/man2/close.2.html
+
+    int close(int fd)
+
+    - fd = file descriptor 
+
+    - closes a file descriptor when syscall == "SYS_close"
+        -> stdin (fd = 0), stdout (fd = 1), stderr (fd = 2) don't support close
+        -> check for valid fd and dup
+        -> close all dups for this file
+        -> clean up with vfs_close(), free memory and set offset to null
+
+dup2
+
+    man page - http://man7.org/linux/man-pages/man2/dup.2.html
+
+    int dup2(int oldfd, int newfd)
+
+    - oldfd = old file descriptor 
+    - newfd = new file descriptor 
+
+    - duplicate a file descriptor when syscall == "SYS_dup2"
+        -> save oldfd
+        -> check if fds are out of range 
+        -> if newfd is in the file table, close it
+        -> check if we already have one dup of the oldfd
+        -> update file table by update linked list
