@@ -9,11 +9,43 @@
  * Contains some file-related maximum length constants
  */
 #include <limits.h>
+#include <vnode.h>
+
 
 
 /*
  * Put your function declarations and data types here ...
  */
+
+typedef struct node *list;
+
+typedef struct head {
+    list rest;
+} head;
+
+typedef struct node {
+    int fd;
+    int isDup;
+    int offset;
+
+    // content
+    struct vnode *vn;
+
+    // pointers
+    list parent;
+    list next;
+    list dup;
+} node;
+
+
+struct head* filetable;
+
+int error_num;
+
+void update_dup_offsets(int fd, int l);
+list getfile(int fd);
+
+void init_node(node *curr, node *parent, int fd, int isDup, node *dup,int offset);
 
 int open(const char *filename, int flags);
 ssize_t read(int fd, void *buf, size_t count);
