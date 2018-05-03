@@ -4,13 +4,12 @@ the design of our solution for assignment 2 can be broken down into several comp
 
 note: consider shared data structures need locking?
 
-note: when update file table consider
-            - filetable_offset[i]
-            - filetable_dup[i]
-            - filetable_isdup[i] 
-            - filetable_parent[i]
-            - filetable[i] -> allocate some memory
+note: put in stuff here about linked list rep
 
+
+
+
+~~~~~~~~~~~~~~~~~~~~~ file.c ~~~~~~~~~~~~~~~~~~~~~
 
 open (needs edits)
 
@@ -125,6 +124,10 @@ dup2
         -> update file table by update linked list
 
 
+~~~~~~~~~~~~~~~~~~~~~ syscall.c ~~~~~~~~~~~~~~~~~~~~~
+
+
+add stuff about trapframes and syscalls
 
 
 
@@ -151,3 +154,9 @@ bmake install
 
 
 sys161 kernel "p /testbin/asst2"
+
+
+~~~~~~~~~~~ git ~~~~~~~~~~~
+
+git commit . -m"design"
+git push -u origin master

@@ -22,23 +22,25 @@
 void update_dup_offsets(int fd, int l) 
 {
 
-    node *curr = filetable->rest;
+    node *curr = getfile(fd);
 
-    while(curr != NULL) {
 
-        if(curr->fd == fd && curr->dup != NULL) {
-            node *t = curr->dup;
+    if(curr->dup != NULL) {
+        node *t = curr->dup;
 
-            while(t != NULL) {
-                
-                if(t->isDup == 1)
-                    t->offset += l;
-
+        while(t != NULL) {
+            
+            if(t->isDup == 1) {
+                t->offset += l;
                 t = t->dup;
-            }
+
+            } else 
+                break;
+
+            
         }
-        curr = curr->next;
     }
+    
 }
 
 
@@ -47,10 +49,15 @@ list getfile(int fd)
 {
     node *curr = filetable->rest;
 
+    kprintf("hey!->>>>>>>>> %d\n", fd);
+
     while(curr != NULL)
     {
+        kprintf(">> %d\n", curr->fd);
         if(curr->fd == fd)
             return curr;
+
+        curr = curr->next;
     }
 
     return NULL;
@@ -58,7 +65,7 @@ list getfile(int fd)
 
 void init_node(node *curr, node *parent, int fd, int isDup, node *dup,int offset)
 {
-    curr = kmalloc(sizeof(struct node));
+    
     curr->fd = fd;
     curr->isDup = isDup;
     curr->offset = offset;
@@ -82,24 +89,39 @@ int open(const char *filename, int flags)
     // should work as open is always called first
 
 
-    if (filetable == NULL) {
+    /*if (filetable == NULL) {
         
         filetable = kmalloc(sizeof(struct head));
+        filetable->rest = kmalloc(sizeof(struct node));
 
-        node *stdin = NULL;
-        node *stdout = NULL;
-        node *stderr = NULL;
+        node *stdin = kmalloc(sizeof(struct node));
+        node *stdout = kmalloc(sizeof(struct node));
+        node *stderr = kmalloc(sizeof(struct node));
 
-        filetable->rest = stdin;
+        
 
         init_node(stdin, NULL,0,0,NULL,0);
         init_node(stdout, stdin,1,0,NULL,0);
         init_node(stderr, stdout,2,0,NULL,0);
         
+        filetable->rest = stdin;
         stdin->next = stdout;
         stdout->next = stderr;
+    } */
 
+
+    node *t = filetable->rest;
+
+    kprintf("open->>>>>>>>>\n");
+
+    while(t != NULL)
+    {
+        
+        kprintf("Node: %d\n",t->fd);
+
+        t = t->next;
     }
+
 
     node *curr = filetable->rest;
     node *prev = NULL;
@@ -107,22 +129,23 @@ int open(const char *filename, int flags)
 
     while(curr != NULL)
     {
-
-
         prev = curr;
         curr = curr->next;
         i++;
     }
 
+    node *newnode = kmalloc(sizeof(struct node));
 
+    init_node(newnode, prev ,i,0,NULL,0);
 
-    prev->next = curr;
-    init_node(curr, prev ,i,0,NULL,0);
+    curr = newnode;
 
 
     char* f = (char*) filename;
 
-    error_num = vfs_open(f, flags, 0, &curr->vn);
+    error_num = vfs_open(f, flags, 0, &newnode->vn);
+
+    kprintf("opened file ->>>>>>>>> %d\n", i);
 
     if(error_num)
         return -1;
@@ -146,6 +169,17 @@ ssize_t read(int fd, void *buf, size_t count)
     void *kerBuf = kmalloc(sizeof(count));
 
 
+    node *t = filetable->rest;
+
+    kprintf("read->>>>>>>>>\n");
+
+    while(t != NULL)
+    {
+        
+        kprintf("Node: %d\n",t->fd);
+
+        t = t->next;
+    }
 
     node *file = getfile(fd);
 
@@ -209,8 +243,22 @@ ssize_t write(int fd, const void *buf, size_t count)
     void *kerBuf = kmalloc(sizeof(count));
 
 
-    node *file = getfile(fd);
 
+    node *t = filetable->rest;
+
+    kprintf("write->>>>>>>>>\n");
+
+    while(t != NULL)
+    {
+        
+        kprintf("Node: %d\n",t->fd);
+
+        t = t->next;
+    }
+
+
+
+    node *file = getfile(fd);
 
     // stdin is read only
 
@@ -238,8 +286,11 @@ ssize_t write(int fd, const void *buf, size_t count)
 
         file->offset += count;
 
+        kprintf("start\n");
+
         update_dup_offsets(fd,count);
 
+        kprintf("end\n");
 
         ret = count;
     } else {
@@ -256,7 +307,24 @@ off_t lseek(int fd, off_t offset, int whence)
     int ret = 0;
     int old_offset;
 
+
+    node *t = filetable->rest;
+
+    kprintf("lseek->>>>>>>>>\n");
+
+    while(t != NULL)
+    {
+        
+        kprintf("Node: %d\n",t->fd);
+
+        t = t->next;
+    }
+
+
+
     node *file = getfile(fd);
+
+    
 
     // std's dont support lseek
     if(fd == 0 || fd == 1 || fd == 2) {
@@ -312,7 +380,31 @@ off_t lseek(int fd, off_t offset, int whence)
 int close(int fd)
 {
     int ret = 0;
+
+
+
+
+
+    node *t = filetable->rest;
+
+    kprintf("close->>>>>>>>>\n");
+
+    while(t != NULL)
+    {
+        
+        kprintf("Node: %d\n",t->fd);
+
+        t = t->next;
+    }
+
+
+
+
+
     node *file = getfile(fd);
+
+
+    
 
     // can't close std's
     if(fd == 0 || fd == 1 || fd == 2) {
@@ -363,6 +455,18 @@ int dup2(int oldfd, int newfd)
 
     int ret = 0;
     //int saved_oldfd = oldfd;
+
+    node *t = filetable->rest;
+
+    kprintf("dup2->>>>>>>>>\n");
+
+    while(t != NULL)
+    {
+        
+        kprintf("Node: %d\n",t->fd);
+
+        t = t->next;
+    }
 
     node *oldfile = getfile(oldfd);
     node *newfile = getfile(newfd);

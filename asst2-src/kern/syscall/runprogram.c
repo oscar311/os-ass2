@@ -44,6 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
+#include "file.h"		// modified 
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -96,6 +97,46 @@ runprogram(char *progname)
 		/* p_addrspace will go away when curproc is destroyed */
 		return result;
 	}
+
+	// modified - start
+
+	// attaching the file descriptors 1 (stdout) and 2 (stderr) to console
+
+      
+   
+    filetable = kmalloc(sizeof(struct head));
+    filetable->rest = kmalloc(sizeof(struct node));
+
+    node *stdin = kmalloc(sizeof(struct node));
+    node *stdout = kmalloc(sizeof(struct node));
+    node *stderr = kmalloc(sizeof(struct node));
+
+    
+
+    init_node(stdin, NULL,0,0,NULL,0);
+    init_node(stdout, stdin,1,0,NULL,0);
+    init_node(stderr, stdout,2,0,NULL,0);
+    
+    filetable->rest = stdin;
+    stdin->next = stdout;
+    stdout->next = stderr;
+	
+
+    char c1[] = "con:";
+	char c2[] = "con:";
+
+
+	int r1 = vfs_open(c1,O_WRONLY,1,&stdout->vn); 
+	int r2 = vfs_open(c2,O_WRONLY,2,&stderr->vn);
+
+	if(r1 || r2)
+	    return -1;
+
+	kprintf("set up done");
+
+	// modified - end 
+
+
 
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
