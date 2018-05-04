@@ -102,38 +102,34 @@ runprogram(char *progname)
 
 	// attaching the file descriptors 1 (stdout) and 2 (stderr) to console
 
-      
-   
-    filetable = kmalloc(sizeof(struct head));
-    filetable->rest = kmalloc(sizeof(struct node));
+    if(filetable == NULL) {
+	   
+	    filetable = (struct head *) kmalloc(sizeof(struct head));
+	    filetable->rest = (struct node *) kmalloc(sizeof(struct node));
 
-    node *stdin = kmalloc(sizeof(struct node));
-    node *stdout = kmalloc(sizeof(struct node));
-    node *stderr = kmalloc(sizeof(struct node));
+	    node *stdin = init_node(NULL,0,0,NULL,0);
+	    node *stdout = init_node(stdin,1,0,NULL,0);
+	    node *stderr = init_node(stdout,2,0,NULL,0);
 
-    
+	    
+	    filetable->rest = stdin;
+	    stdin->next = stdout;
+	    stdout->next = stderr;
+		
 
-    init_node(stdin, NULL,0,0,NULL,0);
-    init_node(stdout, stdin,1,0,NULL,0);
-    init_node(stderr, stdout,2,0,NULL,0);
-    
-    filetable->rest = stdin;
-    stdin->next = stdout;
-    stdout->next = stderr;
-	
-
-    char c1[] = "con:";
-	char c2[] = "con:";
+	    char c1[] = "con:";
+		char c2[] = "con:";
 
 
-	int r1 = vfs_open(c1,O_WRONLY,1,&stdout->vn); 
-	int r2 = vfs_open(c2,O_WRONLY,2,&stderr->vn);
+		int r1 = vfs_open(c1,O_WRONLY,1,&stdout->vn); 
+		int r2 = vfs_open(c2,O_WRONLY,2,&stderr->vn);
 
-	if(r1 || r2)
-	    return -1;
+		if(r1 || r2)
+		    return -1;
 
-	kprintf("set up done");
+		kprintf("set up done");
 
+	}
 	// modified - end 
 
 

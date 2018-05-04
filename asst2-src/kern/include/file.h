@@ -38,14 +38,14 @@ typedef struct node {
 } node;
 
 
-struct head* filetable;
+struct head *filetable;
 
 int error_num;
 
-void update_dup_offsets(int fd, int l);
-list getfile(int fd);
+void update_dup_offsets(node * curr, int l);
+node * getfile(int fd);
 
-void init_node(node *curr, node *parent, int fd, int isDup, node *dup,int offset);
+node *init_node(node *parent, int fd, int isDup, node *dup,int offset);
 
 int open(const char *filename, int flags);
 ssize_t read(int fd, void *buf, size_t count);

@@ -19,11 +19,8 @@
  * Add your file-related functions here ...
  */
 
-void update_dup_offsets(int fd, int l) 
+void update_dup_offsets(node * curr, int l) 
 {
-
-    node *curr = getfile(fd);
-
 
     if(curr->dup != NULL) {
         node *t = curr->dup;
@@ -45,15 +42,18 @@ void update_dup_offsets(int fd, int l)
 
 
 
-list getfile(int fd) 
+node * getfile(int fd) 
 {
-    node *curr = filetable->rest;
+    node *curr = (node *) filetable->rest;
+
+
 
     kprintf("hey!->>>>>>>>> %d\n", fd);
 
     while(curr != NULL)
     {
-        kprintf(">> %d\n", curr->fd);
+        //KASSERT(curr != NULL);
+        //kprintf(">> %d\n", &curr->fd);
         if(curr->fd == fd)
             return curr;
 
@@ -63,16 +63,24 @@ list getfile(int fd)
     return NULL;
 }
 
-void init_node(node *curr, node *parent, int fd, int isDup, node *dup,int offset)
+
+
+node *init_node(node *parent, int fd, int isDup, node *dup,int offset)
 {
     
+    struct node *curr = kmalloc(sizeof(struct node));
+    if(curr == NULL)
+        return NULL;
+
     curr->fd = fd;
     curr->isDup = isDup;
     curr->offset = offset;
     curr->vn = kmalloc(sizeof(struct vnode));
     curr->parent = parent;
-    curr->next = NULL;
+    curr->next = (struct node *) kmalloc(sizeof(struct node));
     curr->dup = dup;
+
+    return curr;
 }
 
 int open(const char *filename, int flags)
@@ -134,9 +142,7 @@ int open(const char *filename, int flags)
         i++;
     }
 
-    node *newnode = kmalloc(sizeof(struct node));
-
-    init_node(newnode, prev ,i,0,NULL,0);
+    node *newnode = init_node(prev ,i,0,NULL,0);
 
     curr = newnode;
 
@@ -214,7 +220,7 @@ ssize_t read(int fd, void *buf, size_t count)
 
             file->offset += l;
 
-            update_dup_offsets(fd, l);
+            update_dup_offsets(file, l);
 
             copyout(kerBuf, (userptr_t) buf, l);
 
@@ -246,7 +252,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 
     node *t = filetable->rest;
 
-    kprintf("write->>>>>>>>>\n");
+    kprintf("write->>>>>>>>> %d\n", fd);
 
     while(t != NULL)
     {
@@ -288,7 +294,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 
         kprintf("start\n");
 
-        update_dup_offsets(fd,count);
+        update_dup_offsets(file,count);
 
         kprintf("end\n");
 
