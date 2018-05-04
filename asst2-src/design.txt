@@ -158,5 +158,5 @@ sys161 kernel "p /testbin/asst2"
 
 ~~~~~~~~~~~ git ~~~~~~~~~~~
 
-git commit . -m"design"
+git commit . -m"bug fixes but still major bug in the linked list"
 git push -u origin master

@@ -32,22 +32,21 @@ typedef struct node {
     struct vnode *vn;
 
     // pointers
-    list parent;
-    list next;
+    
     list dup;
 } node;
 
-
-struct head *filetable;
+#define FILETABLE_SIZE 32
+struct node * filetable[FILETABLE_SIZE];
 
 int error_num;
 
 void update_dup_offsets(node * curr, int l);
-node * getfile(int fd);
+node *getfile(int fd);
 
-node *init_node(node *parent, int fd, int isDup, node *dup,int offset);
+node *init_node(int fd, int isDup, node *dup,int offset);
 
-int open(const char *filename, int flags);
+int open(char *filename, int flags);
 ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
 off_t lseek(int fd, off_t offset, int whence);

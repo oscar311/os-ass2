@@ -98,7 +98,8 @@ syscall(struct trapframe *tf)
 	 */
 
 	retval = 0;
-
+	err = 0;
+	
 	switch (callno) {
 	    case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);
@@ -113,27 +114,27 @@ syscall(struct trapframe *tf)
 
 
 		case SYS_open:
-		err = open((const char *)tf->tf_a0, (int)tf->tf_a1);
+		retval = open((char *)tf->tf_a0, (int)tf->tf_a1);
 		break;
 
 		case SYS_close:
-		err = close((int)tf->tf_a0);
+		retval = close((int)tf->tf_a0);
 		break;
 
 		case SYS_read:
-		err = read((int)tf->tf_a0, (void*)tf->tf_a1, (size_t)tf->tf_a2);
+		retval = read((int)tf->tf_a0, (void*)tf->tf_a1, (size_t)tf->tf_a2);
 		break;
 
 		case SYS_write:
-		err = write((int)tf->tf_a0, (const void *)tf->tf_a1, (size_t)tf->tf_a2);
+		retval = write((int)tf->tf_a0, (const void *)tf->tf_a1, (size_t)tf->tf_a2);
 		break;
 
 		case SYS_lseek:
-		err = lseek((int)tf->tf_a0, (off_t)tf->tf_a1, (int)tf->tf_a2);
+		retval = lseek((int)tf->tf_a0, (off_t)tf->tf_a1, (int)tf->tf_a2);
 		break;
 
 		case SYS_dup2:
-		err = dup2((int)tf->tf_a0, (int)tf->tf_a1);
+		retval = dup2((int)tf->tf_a0, (int)tf->tf_a1);
 		break;
 
 	    default:
@@ -149,6 +150,7 @@ syscall(struct trapframe *tf)
 		 * userlevel to a return value of -1 and the error
 		 * code in errno.
 		 */
+
 		tf->tf_v0 = err;
 		tf->tf_a3 = 1;      /* signal an error */
 	}
