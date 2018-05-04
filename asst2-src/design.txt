@@ -145,7 +145,8 @@ cd ../compile/ASST2
 bmake depend
 bmake
 bmake install
-
+cd ~/cs3231/root
+sys161 kernel "p /testbin/asst2"
 
 
 

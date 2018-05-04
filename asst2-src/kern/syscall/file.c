@@ -63,7 +63,7 @@ node *init_node(int fd, int isDup, node *dup,int offset)
     curr->fd = fd;
     curr->isDup = isDup;
     curr->offset = offset;
-    curr->vn = kmalloc(sizeof(struct vnode));
+    curr->vn = NULL; //kmalloc(sizeof(struct vnode));
 
     curr->dup = dup;
 
@@ -133,7 +133,7 @@ int open( char *filename, int flags)
         error_num = EMFILE;
         ret = -1;
     }
-    kprintf("Hekko %d\n", ret);
+    //kprintf("Hekko %d\n", ret);
     return ret;
 }
 
@@ -275,10 +275,14 @@ off_t lseek(int fd, off_t offset, int whence)
 {
 
     int ret = 0;
-    int old_offset;
+    int old_offset = 0;
+
+    kprintf("KKKKKKsdfghj %d\n", (int)offset); 
 
 
-    node *file = getfile(fd);    
+    node *file = getfile(fd); 
+
+
 
     // std's dont support lseek
     if(fd == 0 || fd == 1 || fd == 2) {
@@ -290,15 +294,17 @@ off_t lseek(int fd, off_t offset, int whence)
     } else {
         old_offset = file->offset;
 
+        // need stats here 
+        struct stat stats;
+        VOP_STAT(file->vn, &stats);
+
+
         if(whence == SEEK_SET) {
             file->offset = offset;
         } else if (whence == SEEK_CUR) {
             file->offset += offset;
         } else if (whence == SEEK_END) {
-            // need stats here 
-            struct stat stats;
-            VOP_STAT(file->vn, &stats);
-
+        
             file->offset = (stats.st_size -1) + offset;
 
         } else {
@@ -309,7 +315,8 @@ off_t lseek(int fd, off_t offset, int whence)
 
         // now check the legally of the new offset
         error_num = VOP_ISSEEKABLE(file->vn);
-        if(error_num) {
+        if(!error_num || file->offset > stats.st_size) {
+            error_num = ESPIPE;
             file->offset = old_offset;
             ret = -1;
         }
@@ -328,6 +335,7 @@ off_t lseek(int fd, off_t offset, int whence)
         }
     }
 
+    kprintf("KKKKKK %d\n", ret); 
     return ret;
 }
 
@@ -338,11 +346,7 @@ int close(int fd)
 
     node *file = getfile(fd);
 
-    // can't close std's
-    if(fd == 0 || fd == 1 || fd == 2) {
-        error_num = EBADF;
-        ret = -1;
-    } else if (file != NULL && file->isDup == 0) {
+    if (file != NULL && file->isDup == 0) {
 
         // close all dups
         node *curr = file->dup;
@@ -351,7 +355,7 @@ int close(int fd)
 
             if(curr->isDup == 1) {
                 vfs_close(curr->vn);
-                kfree(curr->vn);
+                //kfree(curr->vn);
                 node *y = curr;
                 curr = curr->dup;
 
@@ -364,8 +368,9 @@ int close(int fd)
 
 
         vfs_close(file->vn);
-        kfree(file->vn);
+        //kfree(file->vn);
         kfree(file);
+        filetable[fd] = NULL;
 
         ret = 0;
         

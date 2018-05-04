@@ -102,7 +102,7 @@ runprogram(char *progname)
 
 	// attaching the file descriptors 1 (stdout) and 2 (stderr) to console
 
-       
+    error_num = 0;
     
     node *stdin = init_node(0,0,NULL,0);
     node *stdout = init_node(1,0,NULL,0);
