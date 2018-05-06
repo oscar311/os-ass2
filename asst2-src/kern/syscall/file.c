@@ -128,6 +128,7 @@ ssize_t read(int fd, void *buf, size_t count)
     node *file = getfile(fd);
 
     // ensure file is not null or stdout or stderr
+    lock_acquire(file->f_lock);
     if(file == NULL || file->type == 1 || file->type == 2 ) {
         error_num = EBADF;
         ret = -1;
@@ -135,13 +136,12 @@ ssize_t read(int fd, void *buf, size_t count)
 
         // get stats for out file
         struct stat stats;
-        lock_acquire(file->f_lock);
+        
         VOP_STAT(file->vn, &stats);
-        lock_release(file->f_lock);
 
 
         // check if we have bytes to read
-        lock_acquire(file->f_lock);        
+        //lock_acquire(file->f_lock);        
         if(file->offset < stats.st_size) {
             // ensure we are not reading over too much, if so we adjust to fit
             int l = 0;
@@ -171,10 +171,11 @@ ssize_t read(int fd, void *buf, size_t count)
             copyout(kerBuf, (userptr_t) buf, count);
 
         }
-        lock_release(file->f_lock);
+        //lock_release(file->f_lock);
 
     }
 
+    lock_release(file->f_lock);
 
 
     return ret;
@@ -196,10 +197,13 @@ ssize_t write(int fd, const void *buf, size_t count)
     node *file = getfile(fd);
 
     // stdin is read only
+    lock_acquire(file->f_lock);
     if(file->type == 0) {
+        lock_release(file->f_lock);
         error_num = EBADF;
         ret = -1;
     } else if (file != NULL) {
+        lock_release(file->f_lock);
 
         // copy date from userland to kernel
 
@@ -227,6 +231,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 
         ret = count;
     } else {
+        lock_release(file->f_lock);
         error_num = EBADF;
         ret = -1;
     }
@@ -246,21 +251,25 @@ off_t lseek(int fd, off_t offset, int whence)
     node *file = getfile(fd); 
 
     // std's dont support lseek
+    lock_acquire(file->f_lock);
     if(file->type == 0 || file->type == 1 || file->type == 2) {
         error_num = ESPIPE;
         ret = -1;
     } else if (file == NULL) {
+        lock_release(file->f_lock);
         error_num = EBADF;
         ret = -1;
     } else {
-        lock_acquire(file->f_lock);  
+        lock_release(file->f_lock);
+
 
         old_offset = file->offset;
 
+
+        lock_acquire(file->f_lock);
         // need stats here 
         struct stat stats;
         VOP_STAT(file->vn, &stats);
-
 
         if(whence == SEEK_SET) {
             file->offset = offset;
@@ -283,9 +292,12 @@ off_t lseek(int fd, off_t offset, int whence)
             file->offset = old_offset;
             ret = -1;
         }
-        lock_release(file->f_lock);  
+
+        lock_release(file->f_lock);
+
 
     }
+
     // if theres been no error
     if(ret == 0) {
         lock_acquire(file->f_lock);
@@ -300,6 +312,8 @@ off_t lseek(int fd, off_t offset, int whence)
         lock_release(file->f_lock);  
 
     }
+
+
     return ret;
 }
 
@@ -309,7 +323,10 @@ int close(int fd)
 
     node *file = getfile(fd);
 
+
+    lock_acquire(file->f_lock);
     if (file != NULL && file->isDup == 0) {
+        lock_release(file->f_lock);
 
         // close all dups
         lock_acquire(file->f_lock);
@@ -336,7 +353,7 @@ int close(int fd)
         //kfree(file->vn);
         lock_release(file->f_lock);
 
-
+        // break the lock.. break it down duh duh
         lock_destroy(file->f_lock);
         kfree(file);
         filetable[fd] = NULL;
@@ -359,6 +376,9 @@ int dup2(int oldfd, int newfd)
     node *oldfile = getfile(oldfd);
     node *newfile = getfile(newfd);
 
+    lock_acquire(oldfile->f_lock);
+    lock_acquire(newfile->f_lock);
+    
     if(oldfile == NULL || newfile == NULL) {
         error_num = EBADF;
         ret = -1;
@@ -377,8 +397,7 @@ int dup2(int oldfd, int newfd)
             error_num = EBADF;
             ret = -1;
         } else {
-            lock_acquire(oldfile->f_lock);
-            lock_acquire(newfile->f_lock);
+            
 
             if(oldfile->dup != NULL) {
                 node *curr = oldfile;
@@ -393,11 +412,12 @@ int dup2(int oldfd, int newfd)
 
                 ret = 0;
             }
-            lock_release(newfile->f_lock);
-            lock_release(oldfile->f_lock);
-
+            
         }
     }
+    lock_release(newfile->f_lock);
+    lock_release(oldfile->f_lock);
+
     return ret;
 }
 
