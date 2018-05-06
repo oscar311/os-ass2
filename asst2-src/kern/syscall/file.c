@@ -367,6 +367,7 @@ int close(int fd)
 
     return ret;
 }
+
 int dup2(int oldfd, int newfd) 
 {
 
@@ -386,7 +387,9 @@ int dup2(int oldfd, int newfd)
         // close if already opened
         if(newfile != NULL) {
 
+            lock_release(newfile->f_lock);
             error_num = close(newfd);
+            lock_acquire(newfile->f_lock);
             
 
             if(error_num) return -1;
@@ -398,7 +401,7 @@ int dup2(int oldfd, int newfd)
             ret = -1;
         } else {
             
-
+            // if a dup already exist then we need to chain it as its a dup of a dup
             if(oldfile->dup != NULL) {
                 node *curr = oldfile;
                 while(curr->dup != NULL) {
@@ -406,13 +409,16 @@ int dup2(int oldfd, int newfd)
                 }
 
                 // once free spot is the linked list of dups is found
-                newfile = oldfile;
                 curr->dup = newfile;
                 newfile->isDup = 1;
 
                 ret = 0;
+            } else {
+                oldfile->dup = newfile;
+                newfile->isDup = 1;
+                ret = 0;
             }
-            
+
         }
     }
     lock_release(newfile->f_lock);

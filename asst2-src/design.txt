@@ -1,37 +1,56 @@
-~~~~~~~~~~~~~~~~~~~~~ Design ~~~~~~~~~~~~~~~~~~~~~
+The design of our solution for assignment 2 can be broken down into several components:
+1.  Understanding the Syscall code and various header files
+2.  Setting up standard file descriptors
+3.  Writing each syscall function
 
-the design of our solution for assignment 2 can be broken down into several components:
+~~~~~~~~~~~~~~~~~~~~~ file system data structure ~~~~~~~~~~~~~~~~~~~~~
 
-note: consider shared data structures need locking?
+We use a array of node which have been defined in file.h, the nodes consist of:
+    - fd = file descriptor
+    - isDup = bool if its a dup
+    - offset = offset in file
+    - type = whether its a std or just a regular file
+    - vnode = the v node representing the contents of the file
+    - dup = a linked list of duplicates 
+    - f_lock = a lock used for sharing resources
 
-note: put in stuff here about linked list rep
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ syscall.c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+syscall.c required us to implement the switch case statements for each syscall
+this involved:
+    1. switch statement for each syscall
+    2. passing in the parameters from the trap frame 
+    3. returning the correct return value and passing the error code in if something failed
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runprogram.c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+the only change made to runprogram.c involve
 
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ file.c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-~~~~~~~~~~~~~~~~~~~~~ file.c ~~~~~~~~~~~~~~~~~~~~~
-
-open (needs edits)
+~~~~open~~~~ 
 
     man page - http://man7.org/linux/man-pages/man2/open.2.html
 
     int open(const char *filename, int flags)
-
     - filename = name of file
     - flags = flags that need to be given to vfs_open()
-    
-    - open and possibly create file if syscall == "SYS_open"
-        -> scan through file table to look for an avaliable slot
-        -> once found, offset will be 0, allocate some memory
-        -> update the following 
-            - filetable_offset[i] -> 0
-            - filetable_dup[i]
-            - filetable_isdup[i] -> not dup
-            - filetable_parent[i] -> no parent
-            - filetable[i] -> allocate some memory
-        -> call vfs_open()
 
-read (done)
+    - open a file if syscall == "SYS_open"
+        -> scan through file table to look for an available slot
+        -> once found call init_node no duplicate and offset will be 0
+        -> update the contents of the node 
+        -> call vfs_open() inside a lock
+        -> Call VOP_EACHOPEN() in a lock.
+
+Errors to handle
+-   vfs_open returning an error number
+-   VOP_EACHOPEN returning an error number
+
+~~~~read~~~~
 
     man page - http://man7.org/linux/man-pages/man2/read.2.html
     
@@ -41,19 +60,20 @@ read (done)
     - buf = buffer data will be put into to be read
     - count = number of bytes to be read
 
-    
     - read a file if syscall == "SYS_read"
-        -> check securities - if user read allowed access (do we need a lock here)
         -> init buffer to read into
         -> check valid file handler (has to be > 2, not null or 1 = stdout or 2 = stderr (write only) )
-        -> get stats for file VOP_STAT() 
+        -> get stats for file VOP_STAT() inside a lock of the file
         -> check we have bytes to read
         -> set up UIO (unique Input/Output) for kernel I/O and read bytes into it mk_kuio() & VOP_READ() (don't forget to check error)
         -> update offset + dups
         -> copy out to userland copyout()
         -> return bytes read
 
-write
+Errors to handle
+-   VOP_READ returning an error number
+
+~~~~write~~~~
 
     man page - http://man7.org/linux/man-pages/man2/write.2.html
     
@@ -71,7 +91,12 @@ write
         -> set up UIO (unique Input/Output) for kernel I/O and write bytes into it mk_kuio() & VOP_WRITE() (don't forget to check error)
         -> update offset + dups
         -> return bytes written
-lseek 
+
+Errors to handle
+-   Copyin() returning an error number when copying the data from the buf parameter to the newly allocated buffer.
+-   VOP_WRITE  returning an error number
+
+~~~~lseek ~~~~
 
     man page - http://man7.org/linux/man-pages/man2/lseek.2.html
 
@@ -93,7 +118,13 @@ lseek
         -> use VOP_TRYSEEK() to check if the new pos is legal, on a legal file 
         -> return either the new offset or old offset
 
-close
+Errors to handle
+- File type is STD
+- File is null
+- Incorrect whence value
+- VOP_ISSEEKABLE returning an error number
+
+~~~~close~~~~
 
     man page - http://man7.org/linux/man-pages/man2/close.2.html
 
@@ -107,7 +138,10 @@ close
         -> close all dups for this file
         -> clean up with vfs_close(), free memory and set offset to null
 
-dup2
+Errors to handle
+-   file != NULL && file->isDup == 0
+
+~~~~dup2~~~~
 
     man page - http://man7.org/linux/man-pages/man2/dup.2.html
 
@@ -123,17 +157,12 @@ dup2
         -> check if we already have one dup of the oldfd
         -> update file table by update linked list
 
-
-~~~~~~~~~~~~~~~~~~~~~ syscall.c ~~~~~~~~~~~~~~~~~~~~~
-
-
-add stuff about trapframes and syscalls
-
-
+Errors to handle
+-   oldfile == NULL || newfile == NULL
+-   close returning an error number
+-   oldfile == NULL
 
 ~~~~~~~~~~~ setup ~~~~~~~~~~~
-
-
 cd ~/cs3231/asst2-src
 ./configure
 cd ~/cs3231/asst2-src
@@ -146,18 +175,10 @@ bmake depend
 bmake
 bmake install
 cd ~/cs3231/root
-sys161 kernel "p /testbin/asst2"
-
-
-
 
 ~~~~~~~~~~~ testing ~~~~~~~~~~~
-
-
 sys161 kernel "p /testbin/asst2"
 
-
 ~~~~~~~~~~~ git ~~~~~~~~~~~
-
 git commit . -m"bug fixes but still major bug in the linked list"
 git push -u origin master
