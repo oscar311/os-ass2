@@ -277,7 +277,7 @@ off_t lseek(int fd, off_t offset, int whence)
     int ret = 0;
     int old_offset = 0;
 
-    kprintf("KKKKKKsdfghj %d\n", (int)offset); 
+    //kprintf("KKKKKKsdfghj %ld\n", offset); 
 
 
     node *file = getfile(fd); 
@@ -315,7 +315,7 @@ off_t lseek(int fd, off_t offset, int whence)
 
         // now check the legally of the new offset
         error_num = VOP_ISSEEKABLE(file->vn);
-        if(!error_num || file->offset > stats.st_size) {
+        if(!error_num || file->offset > stats.st_size - 1) {
             error_num = ESPIPE;
             file->offset = old_offset;
             ret = -1;
@@ -335,7 +335,7 @@ off_t lseek(int fd, off_t offset, int whence)
         }
     }
 
-    kprintf("KKKKKK %d\n", ret); 
+    //kprintf("KKKKKK %d\n", ret); 
     return ret;
 }
 

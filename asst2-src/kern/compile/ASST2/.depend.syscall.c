@@ -9,4 +9,5 @@ syscall.o: ../../arch/mips/syscall/syscall.c ../../include/types.h \
  includelinks/kern/machine/setjmp.h ../../include/current.h \
  includelinks/machine/current.h ../../include/syscall.h \
  ../../include/file.h ../../include/limits.h ../../include/kern/limits.h \
- ../../include/vnode.h
+ ../../include/vnode.h ../../include/endian.h ../../include/kern/endian.h \
+ includelinks/kern/machine/endian.h ../../include/copyinout.h
