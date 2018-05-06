@@ -11,4 +11,4 @@ runprogram.o: ../../syscall/runprogram.c ../../include/types.h \
  ../../include/vm.h includelinks/machine/vm.h opt-dumbvm.h \
  ../../include/vfs.h ../../include/syscall.h ../../include/test.h \
  ../../include/file.h ../../include/limits.h ../../include/kern/limits.h \
- ../../include/vnode.h
+ ../../include/vnode.h ../../include/synch.h

@@ -103,15 +103,21 @@ runprogram(char *progname)
 	// attaching the file descriptors 1 (stdout) and 2 (stderr) to console
 
     error_num = 0;
+
     
     node *stdin = init_node(0,0,NULL,0);
     node *stdout = init_node(1,0,NULL,0);
     node *stderr = init_node(2,0,NULL,0);
 
+    stdin->type = STDIN;
+    stdout->type = STDOUT;
+    stderr->type = STDERR;
+    
     filetable[0] = stdin;
     filetable[1] = stdout;
     filetable[2] = stderr;
-	
+
+
 
     char c1[] = "con:";
 	char c2[] = "con:";

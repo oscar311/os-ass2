@@ -10,12 +10,20 @@
  */
 #include <limits.h>
 #include <vnode.h>
+#include <synch.h>
+
 
 
 
 /*
  * Put your function declarations and data types here ...
  */
+
+#define NONE 3
+#define STDIN 0
+#define STDOUT 1
+#define STDERR 2
+
 
 typedef struct node *list;
 
@@ -24,22 +32,30 @@ typedef struct head {
 } head;
 
 typedef struct node {
+    // file descriptor
     int fd;
     int isDup;
     int offset;
+
+    int type;
 
     // content
     struct vnode *vn;
 
     // pointers
-    
     list dup;
+
+    // lock
+    struct lock *f_lock;
 } node;
 
 #define FILETABLE_SIZE 32
 struct node * filetable[FILETABLE_SIZE];
 
 int error_num;
+
+struct lock *ft_lock;
+
 
 void update_dup_offsets(node * curr, int l);
 node *getfile(int fd);

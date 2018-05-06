@@ -67,6 +67,10 @@ node *init_node(int fd, int isDup, node *dup,int offset)
 
     curr->dup = dup;
 
+    curr->f_lock = lock_create("lock");
+
+    curr->type = NONE;
+
     return curr;
 }
 
@@ -75,59 +79,32 @@ int open( char *filename, int flags)
 
     int ret = 0; // return value
 
-
-    // ignore - stdin (fd = 0), stdout (fd = 1), stderr (fd = 2) 
-
-    // if filetable is empty 
-    // file the first 3 slot with std
-    // then use as normal
-    // should work as open is always called first
-
-
-    /*if (filetable == NULL) {
-        
-        filetable = kmalloc(sizeof(struct head));
-        filetable->rest = kmalloc(sizeof(struct node));
-
-        node *stdin = kmalloc(sizeof(struct node));
-        node *stdout = kmalloc(sizeof(struct node));
-        node *stderr = kmalloc(sizeof(struct node));
-
-        
-
-        init_node(stdin, NULL,0,0,NULL,0);
-        init_node(stdout, stdin,1,0,NULL,0);
-        init_node(stderr, stdout,2,0,NULL,0);
-        
-        filetable->rest = stdin;
-        stdin->next = stdout;
-        stdout->next = stderr;
-    } */
     int i = 0;
-    // ignore - stdin (fd = 0), stdout (fd = 1), stderr (fd = 2) 
-    for(i = 3; i < FILETABLE_SIZE; i++) {
+
+    for(i = 0; i < FILETABLE_SIZE; i++) {
 
         // check for dup?
         if(filetable[i] == NULL) {
 
             filetable[i] = init_node(i,0,NULL,0);
 
+            lock_acquire(filetable[i]->f_lock);
             error_num = vfs_open(filename, flags, i, &filetable[i]->vn);
-            if(error_num)
-                return -1;
-             
+            lock_release(filetable[i]->f_lock);
+            
+            if(error_num) return -1;
+            
+            lock_acquire(filetable[i]->f_lock);
             error_num = VOP_EACHOPEN(filetable[i]->vn, flags);
-            if(error_num)
-                return -1;
-
+            lock_release(filetable[i]->f_lock);
+            
+            if(error_num) return -1;
+            
             ret = i;
             break;
-
-
         }
 
     }
-
 
     if(i >= FILETABLE_SIZE) {
         error_num = EMFILE;
@@ -148,23 +125,23 @@ ssize_t read(int fd, void *buf, size_t count)
     // set up buf to read into
     void *kerBuf = kmalloc(sizeof(count));
 
-
-    
-
     node *file = getfile(fd);
 
     // ensure file is not null or stdout or stderr
-    if(file == NULL || fd == 1 || fd == 2 ) {
+    if(file == NULL || file->type == 1 || file->type == 2 ) {
         error_num = EBADF;
         ret = -1;
     } else {
 
         // get stats for out file
         struct stat stats;
+        lock_acquire(file->f_lock);
         VOP_STAT(file->vn, &stats);
+        lock_release(file->f_lock);
+
 
         // check if we have bytes to read
-
+        lock_acquire(file->f_lock);        
         if(file->offset < stats.st_size) {
             // ensure we are not reading over too much, if so we adjust to fit
             int l = 0;
@@ -179,8 +156,7 @@ ssize_t read(int fd, void *buf, size_t count)
             
             error_num = VOP_READ(file->vn, &unique_io);
 
-            if(error_num)
-                return -1;
+            if(error_num) return -1;
 
             file->offset += l;
 
@@ -195,7 +171,10 @@ ssize_t read(int fd, void *buf, size_t count)
             copyout(kerBuf, (userptr_t) buf, count);
 
         }
+        lock_release(file->f_lock);
+
     }
+
 
 
     return ret;
@@ -214,25 +193,10 @@ ssize_t write(int fd, const void *buf, size_t count)
 
 
 
-    /*node *t = filetable->rest;
-
-    //kprintf("write->>>>>>>>> %d\n", fd);
-
-    while(t != NULL)
-    {
-        
-        //kprintf("Node: %d\n",t->fd);
-
-        t = t->next;
-    }*/
-
-
-
     node *file = getfile(fd);
 
     // stdin is read only
-
-    if(fd == 0) {
+    if(file->type == 0) {
         error_num = EBADF;
         ret = -1;
     } else if (file != NULL) {
@@ -241,32 +205,32 @@ ssize_t write(int fd, const void *buf, size_t count)
 
         error_num = copyin((const_userptr_t)buf, kerBuf, count);
 
-        if(error_num)
-            return -1;
+        if(error_num) return -1;
 
         // set up uio for kernel io
-
-        uio_kinit(&iov, &unique_io, kerBuf, count, file->offset, UIO_WRITE);
-            
+        lock_acquire(file->f_lock);
+        uio_kinit(&iov, &unique_io, kerBuf, count, file->offset, UIO_WRITE);            
         error_num = VOP_WRITE(file->vn, &unique_io);
-        if(error_num)
-            return -1;
+        lock_release(file->f_lock);
+
+        if(error_num) return -1;
 
         // update offset
-
+        lock_acquire(file->f_lock);  
         file->offset += count;
+        lock_release(file->f_lock);
 
-        //kprintf("start\n");
 
+        lock_acquire(file->f_lock);  
         update_dup_offsets(file,count);
-
-        //kprintf("end\n");
+        lock_release(file->f_lock);  
 
         ret = count;
     } else {
         error_num = EBADF;
         ret = -1;
     }
+
 
     return ret;
 }
@@ -279,19 +243,18 @@ off_t lseek(int fd, off_t offset, int whence)
 
     //kprintf("KKKKKKsdfghj %ld\n", offset); 
 
-
     node *file = getfile(fd); 
 
-
-
     // std's dont support lseek
-    if(fd == 0 || fd == 1 || fd == 2) {
+    if(file->type == 0 || file->type == 1 || file->type == 2) {
         error_num = ESPIPE;
         ret = -1;
     } else if (file == NULL) {
         error_num = EBADF;
         ret = -1;
     } else {
+        lock_acquire(file->f_lock);  
+
         old_offset = file->offset;
 
         // need stats here 
@@ -320,11 +283,12 @@ off_t lseek(int fd, off_t offset, int whence)
             file->offset = old_offset;
             ret = -1;
         }
+        lock_release(file->f_lock);  
+
     }
-
-
     // if theres been no error
     if(ret == 0) {
+        lock_acquire(file->f_lock);
         // check if offsets negative
         if(file->offset < 0) {
             file->offset = old_offset;
@@ -333,9 +297,9 @@ off_t lseek(int fd, off_t offset, int whence)
         } else {
             ret = file->offset;
         }
-    }
+        lock_release(file->f_lock);  
 
-    //kprintf("KKKKKK %d\n", ret); 
+    }
     return ret;
 }
 
@@ -343,12 +307,13 @@ int close(int fd)
 {
     int ret = 0;
 
-
     node *file = getfile(fd);
 
     if (file != NULL && file->isDup == 0) {
 
         // close all dups
+        lock_acquire(file->f_lock);
+
         node *curr = file->dup;
 
         while(curr != NULL) {
@@ -369,6 +334,10 @@ int close(int fd)
 
         vfs_close(file->vn);
         //kfree(file->vn);
+        lock_release(file->f_lock);
+
+
+        lock_destroy(file->f_lock);
         kfree(file);
         filetable[fd] = NULL;
 
@@ -379,7 +348,6 @@ int close(int fd)
         ret = -1;
     }
 
-
     return ret;
 }
 int dup2(int oldfd, int newfd) 
@@ -387,7 +355,6 @@ int dup2(int oldfd, int newfd)
 
     int ret = 0;
     //int saved_oldfd = oldfd;
-
 
     node *oldfile = getfile(oldfd);
     node *newfile = getfile(newfd);
@@ -398,9 +365,11 @@ int dup2(int oldfd, int newfd)
     } else {
         // close if already opened
         if(newfile != NULL) {
+
             error_num = close(newfd);
-            if(error_num)
-                return -1;
+            
+
+            if(error_num) return -1;
         }
 
         // there must be some data in oldfd
@@ -408,6 +377,8 @@ int dup2(int oldfd, int newfd)
             error_num = EBADF;
             ret = -1;
         } else {
+            lock_acquire(oldfile->f_lock);
+            lock_acquire(newfile->f_lock);
 
             if(oldfile->dup != NULL) {
                 node *curr = oldfile;
@@ -422,6 +393,9 @@ int dup2(int oldfd, int newfd)
 
                 ret = 0;
             }
+            lock_release(newfile->f_lock);
+            lock_release(oldfile->f_lock);
+
         }
     }
     return ret;
