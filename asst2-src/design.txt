@@ -14,21 +14,6 @@ We use a array of node which have been defined in file.h, the nodes consist of:
     - dup = a linked list of duplicates 
     - f_lock = a lock used for sharing resources
 
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ syscall.c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-syscall.c required us to implement the switch case statements for each syscall
-this involved:
-    1. switch statement for each syscall
-    2. passing in the parameters from the trap frame 
-    3. returning the correct return value and passing the error code in if something failed
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runprogram.c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-the only change made to runprogram.c involve
-
-
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ file.c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~open~~~~ 
@@ -162,7 +147,20 @@ Errors to handle
 -   close returning an error number
 -   oldfile == NULL
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ syscall.c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+syscall.c required us to implement the switch case statements for each syscall
+this involved:
+    1. switch statement for each syscall
+    2. passing in the parameters from the trap frame 
+    3. returning the correct return value and passing the error code in if something failed
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ runprogram.c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+the only change made to runprogram.c involves the initialisation of the std's
+
 ~~~~~~~~~~~ setup ~~~~~~~~~~~
+
 cd ~/cs3231/asst2-src
 ./configure
 cd ~/cs3231/asst2-src
@@ -177,8 +175,5 @@ bmake install
 cd ~/cs3231/root
 
 ~~~~~~~~~~~ testing ~~~~~~~~~~~
-sys161 kernel "p /testbin/asst2"
 
-~~~~~~~~~~~ git ~~~~~~~~~~~
-git commit . -m"bug fixes but still major bug in the linked list"
-git push -u origin master
+sys161 kernel "p /testbin/asst2"
